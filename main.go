@@ -3,13 +3,19 @@ package main
 import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"log"
 	"net/http"
+	"os"
 	"time"
 )
 
 func main() {
+	log.SetFormatter(&log.JSONFormatter{})
+
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.InfoLevel)
+
 	viper.AutomaticEnv()
 
 	viper.SetDefault("request.timeout.duration", time.Second*2)
@@ -21,26 +27,21 @@ func main() {
 	r := chi.NewRouter()
 
 	r.Use(middleware.RequestID)
-
-	r.Use(middleware.Logger)
-	r.Use(middleware.RealIP)
 	r.Use(middleware.Recoverer)
-
+	r.Use(middleware.Timeout(requestTimeoutDuration))
 	r.Use(middleware.ContentCharset("utf-8"))
 	r.Use(middleware.AllowContentType("application/json"))
-
-	r.Use(middleware.Timeout(requestTimeoutDuration))
 
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte("Hello, World!"))
 		if err != nil {
-			log.Fatalln("Error writing response.", err)
+			log.Fatal("Error writing response.", err)
 		}
 	})
 
-	log.Println("Starting application...")
+	log.Info("Starting application...")
 	err := http.ListenAndServe(applicationPort, r)
 	if err != nil {
-		log.Fatalln("Error starting application", err)
+		log.Fatal("Error starting application", err)
 	}
 }
